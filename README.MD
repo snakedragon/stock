@@ -15,10 +15,12 @@
 * jisilu.py 获取集思录的可转债行情
 * jubi.py -获取国内山寨币平台的实时数据
 * new_stock_break 分析新股的开板时机
+* new_stock_fund 打新基金获取，并选出中签科创板的基金
 * pledgeed_validation.py 股权质押数据整理
 * push_msn.py -短信提醒自己 设定的某个股票价格或者涨幅达到自己 要求
 * relationship_case.py 每个月的解禁股与大盘指数的关系
 * select_stock.py - 选股策略， 根据自己的经验选出来的个股。 
+* SPSIOP_PRICE.py - 华宝油气估值 通过爬虫获取数据然后计算
 * stockInfo.py 爬取市场股票新闻消息，并存储到ElasticSearch数据库中
 * strategy_verify.py 获取雪球的策略并验证
 * simulation.py 记录自己的模拟仓
@@ -28,11 +30,18 @@
 
 ###
 您的支持就是我最大的动力！
+
+关注开发者公众号： 可转债量化分析
+![gzh](resource/gongzhonghao.png)
+
 如果您觉得本示例对你有用，作为对作者的打赏，可以扫描以下支付宝红包,这是作者的免费红包二维码，领取了到店铺支付时使用，可抵扣相应金额。
 
 ![alipay](resource/redbag.jpg )
+
+
 
 如果您真的很感激作者，也可以直接扫描以下二维码打赏作者。
 
 ![weixin](resource/weixin.png)    
 ![alipay](resource/MyAlipay.jpg)  
+

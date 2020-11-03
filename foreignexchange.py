@@ -6,9 +6,8 @@ import os
 import re
 import datetime
 import requests
-from settings import sendmail,get_mysql_conn,llogger
-filename=os.path.basename(__file__)
-logger = llogger('log/'+filename)
+from settings import DBSelector,llogger
+logger = llogger('log/usd.log')
 
 class ForeighExchange(object):
 
@@ -35,7 +34,7 @@ class ForeighExchange(object):
             logger.info(sub)
             # sendmail('',sub)
 
-            conn=get_mysql_conn('db_stock','local')
+            conn=DBSelector().get_mysql_conn('db_stock','qq')
             cursor = conn.cursor()
             cmd = 'insert into `usd_ratio` (`price`,`date`) VALUES ({},{!r})'.format(buy,datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 

@@ -6,18 +6,18 @@ import matplotlib
 昨日涨停的今日的实时情况
 '''
 matplotlib.use("Pdf")
-from settings import get_engine, is_holiday, DATA_PATH
+from settings import DBSelector, is_holiday, DATA_PATH
 import pandas as pd
 import tushare as ts
 import numpy as np
 from plot_line import plot_stock_line
 from settings import llogger
 
-filename=os.path.basename(__file__)
-logger = llogger('log/'+filename)
+logger = llogger('log/yester_zdt.log')
+DB = DBSelector()
 
 def monitor():
-    engine = get_engine('db_zdt')
+    engine = DB.get_engine('db_zdt','qq')
     table = '20180409zdt'
     api = ts.get_apis()
     df = pd.read_sql(table, engine, index_col='index')
@@ -66,7 +66,7 @@ def monitor():
 
 
 def plot_yesterday_zt(type_name='zrzt', current=datetime.datetime.now().strftime('%Y%m%d')):
-    engine = get_engine('db_zdt')
+    engine = DB.get_engine('db_zdt','qq')
     table_name = type_name
     table = '{}{}'.format(current, table_name)
     try:
@@ -75,11 +75,13 @@ def plot_yesterday_zt(type_name='zrzt', current=datetime.datetime.now().strftime
         logger.error('table_name >>> {}{}'.format(current,table_name))
         logger.error(e)
         return
-
+    start_data = datetime.datetime.now() + datetime.timedelta(days=-200)
+    start_data=start_data.strftime('%Y-%m-%d')
     for i in range(len(df)):
         code = df.iloc[i]['代码']
         name = df.iloc[i]['名称']
-        plot_stock_line(api,code, name, table_name=table_name, current=current, start='2018-07-01', save=True)
+
+        plot_stock_line(api,code, name, table_name=table_name, current=current, start=start_data, save=True)
 
 
 if __name__ == '__main__':
@@ -90,7 +92,7 @@ if __name__ == '__main__':
 
     logger.info("Start")
     api = ts.get_apis()
-
+    # current='20191016'
     current = datetime.datetime.now().strftime('%Y%m%d')
     data_path = DATA_PATH
 
@@ -103,5 +105,6 @@ if __name__ == '__main__':
         try:
             plot_yesterday_zt(plot_type, current=current)
         except Exception as e:
+            logger.error(e)
             continue
     ts.close_apis(api)

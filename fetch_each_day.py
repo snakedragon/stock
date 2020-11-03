@@ -10,22 +10,26 @@ import pandas as pd
 import time
 import datetime
 import os
-from settings import get_engine, llogger, is_holiday, DATA_PATH
+from settings import DBSelector, llogger, is_holiday, DATA_PATH
 
-filename=os.path.basename(__file__)
-logger = llogger('log/'+filename)
+logger = llogger('log/fetch_each_day.log')
 
 
 class FetchDaily(object):
     def __init__(self):
-        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
 
+        self.today = datetime.datetime.now().strftime('%Y-%m-%d')
+        # self.today = '2020-02-07'
         self.path = DATA_PATH
         if not os.path.exists(self.path):
-            os.mkdir(self.path)
+            try:
+                os.mkdir(self.path)
+            except Exception as e:
+                print(e)
 
         self.df_today_all = pd.DataFrame()
         self.TIMEOUT = 10
+        self.DB = DBSelector()
 
     def gettodaymarket(self, re_try=10):
         while re_try > 0:
@@ -62,7 +66,7 @@ class FetchDaily(object):
             except Exception as  e:
                 logger.error(e)
 
-            engine = get_engine('db_daily')
+            engine = self.DB.get_engine('db_daily','qq')
             # print(self.df_today_all)
             try:
                 self.df_today_all.to_sql(self.today, engine, if_exists='fail')
@@ -71,6 +75,7 @@ class FetchDaily(object):
                 logger.error(e)
         else:
             logger.error('today_all df is None')
+
     def store_new(self):
         self.df_today_all = self.gettodaymarket()
         filename = self.today + '_all_.xls'
@@ -81,7 +86,7 @@ class FetchDaily(object):
                     self.save_to_excel(self.df_today_all, full_filename)
                 except Exception as e:
                     print(e)
-                engine = get_engine('db_daily')
+                engine = self.DB.get_engine('db_daily','qq')
                 try:
                     self.df_today_all.to_sql(self.today, engine)
                 except Exception as e:

@@ -1,15 +1,26 @@
 # -*-coding=utf-8-*-
 # 估价达到自己的设定值,发邮件通知, 每天2.45发邮件
+import requests
 import tushare as ts
-from settings import get_engine, trading_time, llogger, is_holiday, get_mysql_conn
+from settings import DBSelector, trading_time, llogger, is_holiday
 import datetime
 import time
 import pandas as pd
 import numpy as np
 import os
+# import tkinter
+# import tkinter.messagebox  # 弹窗库
+import threading
+from jsl_monitor import ReachTargetJSL
+import config
+
+def show_box(msg):
+    pass
+    # tkinter.messagebox.showinfo('注意', msg)
 
 dirname = os.path.dirname(__file__)
-full_name = os.path.join(dirname, 'log/alert_me_{}.log'.format(datetime.date.today()))
+full_name = os.path.join(
+    dirname, 'log/alert_me_{}.log'.format(datetime.date.today()))
 logger = llogger(full_name)
 
 # 循环检测时间
@@ -18,22 +29,25 @@ EXECEPTION_TIME = 20
 MARKET_OPENING = 0
 # ALERT_PERCENTAGE = 3
 DELTA_TIME = 30
-ZG_ALERT_PERCENT = 5
-ZZ_ALERT_PERCENT = 4
-CW_ALERT_PERCENT=-5
-DIFF_DELTA_TIME=30
+ZG_ALERT_PERCENT = 8
+ZZ_ALERT_PERCENT = 8
+CW_ALERT_PERCENT = -5
+DIFF_DELTA_TIME = 30
 # ALERT_PERCENT_POOL = 3
-DIFF_V = 40 # quote 接口以千为单位
+DIFF_V = 40  # quote 接口以千为单位
 
 file = 'D:\OneDrive\Stock\gj_hold.xls'
 
 
 # 可转债市场的监控 和 自选池
 
+
 class ReachTarget():
 
     def __init__(self):
-        self.engine = get_engine('db_stock')
+        self.DB = DBSelector()
+
+        self.engine = self.DB.get_engine('db_stock', 'qq')
         self.api = ts.get_apis()
 
         # python3 这个返回的不是list,需要手工转换
@@ -69,10 +83,10 @@ class ReachTarget():
         self.zg_stocks_yjl = dict(zip(self.zg_code, self.yjl))
 
         return (
-                self.kzz_stocks,
-                self.zg_stocks,
-                self.kzz_stocks_yjl,
-                self.zg_stocks_yjl)
+            self.kzz_stocks,
+            self.zg_stocks,
+            self.kzz_stocks_yjl,
+            self.zg_stocks_yjl)
 
     # 数据库获取模拟股，这个要废弃
     def stock_pool(self):
@@ -82,7 +96,7 @@ class ReachTarget():
         return list(pool_df['代码'].values), list(pool_df['名字'].values)
 
     # 判断市场
-    def identify_market(self,x):
+    def identify_market(self, x):
         if x.startswith('3') or x.startswith('6') or x.startswith('0'):
             return False
         else:
@@ -90,14 +104,15 @@ class ReachTarget():
 
     # 获取当前持仓个股
     def get_current_position(self):
-        engine = get_engine('db_position')
+        engine = self.DB.get_engine('db_position', 'qq')
 
         df = pd.read_sql('tb_position_2019-06-17', con=engine)
 
         # 只关注可转债
-        df=df[df['证券代码'].map(self.identify_market)]
+        df = df[df['证券代码'].map(self.identify_market)]
 
-        kzz_stocks = dict(zip(list(df['证券代码'].values), list(df['证券名称'].values)))
+        kzz_stocks = dict(
+            zip(list(df['证券代码'].values), list(df['证券名称'].values)))
 
         cons = get_mysql_conn('db_stock', 'local')
         cursor = cons.cursor()
@@ -130,10 +145,10 @@ class ReachTarget():
 
         else:
             return list(jsl_df['可转债代码']), list(jsl_df['可转债名称']), list(jsl_df['正股代码'].values), \
-                   list(jsl_df['正股名称'].values), list(jsl_df['溢价率'].values)
+                list(jsl_df['正股名称'].values), list(jsl_df['溢价率'].values)
 
     # 可转债的监测
-    def monitor(self,total_market=True):
+    def monitor(self, total_market=True):
         '''
         total_market 默认监控全市场 total_market = True
         '''
@@ -144,9 +159,12 @@ class ReachTarget():
 
         zg_code = list(zg_stocks.keys())
         kzz_code = list(kzz_stocks.keys())
-        self.has_sent_kzz = dict(zip(kzz_code, [datetime.datetime.now()] * len(kzz_code)))
-        self.has_sent_diff = dict(zip(kzz_code, [datetime.datetime.now()] * len(kzz_code)))
-        self.has_sent_zg = dict(zip(zg_code, [datetime.datetime.now()] * len(zg_code)))
+        self.has_sent_kzz = dict(
+            zip(kzz_code, [datetime.datetime.now()] * len(kzz_code)))
+        self.has_sent_diff = dict(
+            zip(kzz_code, [datetime.datetime.now()] * len(kzz_code)))
+        self.has_sent_zg = dict(
+            zip(zg_code, [datetime.datetime.now()] * len(zg_code)))
 
         while 1:
 
@@ -157,8 +175,8 @@ class ReachTarget():
                                        ZZ_ALERT_PERCENT)
                 self.get_realtime_info(zg_code, self.has_sent_zg, '正股', zg_stocks, zg_yjl,
                                        ZG_ALERT_PERCENT)
-                self.get_price_diff(codes=kzz_code, has_sent_=self.has_sent_diff, types='差价',kzz_stocks=kzz_stocks,kzz_stocks_yjl=kzz_yjl)
-
+                self.get_price_diff(codes=kzz_code, has_sent_=self.has_sent_diff,
+                                    types='差价', kzz_stocks=kzz_stocks, kzz_stocks_yjl=kzz_yjl)
 
                 time.sleep(LOOP_TIME)
 
@@ -170,7 +188,8 @@ class ReachTarget():
                     ts.close_apis(self.api)
 
                 except Exception as e:
-                    logger.info('fail to  stop monitor {}'.format(datetime.datetime.now()))
+                    logger.info('fail to  stop monitor {}'.format(
+                        datetime.datetime.now()))
                     logger.info(e)
                 exit(0)
 
@@ -180,7 +199,7 @@ class ReachTarget():
         try:
             price_df = ts.quotes(codes, conn=self.api)
 
-        except Exception as  e:
+        except Exception as e:
             logger.error('获取可转债异常 >>>> {}'.format(e))
             try:
                 self.api = ts.get_apis()
@@ -195,7 +214,8 @@ class ReachTarget():
                 price_df = price_df[price_df['cur_vol'] != 0]
                 price_df['percent'] = (price_df['price'] - price_df['last_close']) / price_df[
                     'last_close'] * 100
-                price_df['percent'] = price_df['percent'].map(lambda x: round(x, 2))
+                price_df['percent'] = price_df['percent'].map(
+                    lambda x: round(x, 2))
                 ret_dt = \
                     price_df[
                         (price_df['percent'] > percent) | (price_df['percent'] < -1 * percent)][
@@ -212,7 +232,8 @@ class ReachTarget():
                             yjl_list = []
                             name_list.append(stock[i])
                             yjl_list.append(yjl[i])
-                            has_sent[i] = datetime.datetime.now() + datetime.timedelta(minutes=DELTA_TIME)
+                            has_sent[i] = datetime.datetime.now(
+                            ) + datetime.timedelta(minutes=DELTA_TIME)
 
                             ret_dt1 = ret_dt[ret_dt['code'] == i]
                             ret_dt1['名称'] = name_list
@@ -238,12 +259,12 @@ class ReachTarget():
                                 logger.info(e)
 
     # 获取差价 可转债
-    def get_price_diff(self, codes, has_sent_, types,kzz_stocks,kzz_stocks_yjl):
+    def get_price_diff(self, codes, has_sent_, types, kzz_stocks, kzz_stocks_yjl):
         # 针对可转债
         try:
             df = ts.quotes(codes, conn=self.api)
 
-        except Exception as  e:
+        except Exception as e:
             logger.error('获取可转债异常 >>>> {}'.format(e))
             try:
                 self.api = ts.get_apis()
@@ -264,7 +285,8 @@ class ReachTarget():
                 for j in result['code']:
 
                     if has_sent_[j] <= datetime.datetime.now():
-                        has_sent_[j] = datetime.datetime.now() + datetime.timedelta(minutes=DIFF_DELTA_TIME)
+                        has_sent_[j] = datetime.datetime.now(
+                        ) + datetime.timedelta(minutes=DIFF_DELTA_TIME)
                         name_list = []
                         yjl_list = []
                         name_list.append(kzz_stocks[j])
@@ -300,11 +322,11 @@ if __name__ == '__main__':
         logger.info('Holiday')
         exit(0)
 
-    # 周末的时候不登录微信
+    # 监控方式
+    if config.MONITOR_TYPE=='jsl':
+        obj = ReachTargetJSL()
+        obj.monitor()
 
-    from settings import WechatSend
-    #
-    wechat = WechatSend('wei')
-    logger.info('{} 开始实时行情爬取'.format(datetime.date.today()))
-    obj = ReachTarget()
-    obj.monitor()
+    else:
+        obj = ReachTarget()
+        obj.monitor()
